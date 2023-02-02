@@ -21,6 +21,26 @@
     .sel-container {display:block;margin-top:5px;}
     .close-btn{position: absolute;right: 0;top: 0;}
     .home {text-align: center;}
+    .modal-window {
+      display: none;
+      position: absolute;
+      left: 50%;
+      max-width: 80%;
+      transform: translateX(-50%);
+      z-index: 99999;
+      background: #fff;
+      padding: 20px;
+      border: thick double black;
+      border-radius: 5px;
+      font-family: sans-serif;
+      top: 50px;  
+    }
+    .modal-window.active {
+        display: block;
+    }
+    .overflow {
+      overflow: auto;
+    }
   </style>
 </head>
 <body>
@@ -49,6 +69,13 @@
         <select class="dce-sel-resolution"></select>
       </div>
       <button class="close-btn" onclick="stopScan();">Close</button>
+      <div id="modal" class="modal-window">
+        <div class="overflow">
+          <pre id="scan-result"></pre>
+        </div>
+        <button id="correct-btn" onclick="correct()">Correct</button>
+        <button id="rescan-btn" onclick="rescan()">Rescan</button>
+      </div>
     </div>
   </div>
 
@@ -150,8 +177,9 @@
             const lineResult = result.lineResults[j];
             let text = whiteSpacesRemoved(lineResult.text);
             if (IMEIValid(text)) {
-              document.getElementsByClassName("result")[0].innerHTML = text;
-              stopScan();
+              document.getElementById("scan-result").innerText = text;
+              document.getElementById("modal").className += " active";
+              stopProcessingLoop();
               break;
             }
           }
@@ -200,6 +228,19 @@
         return true;
       }
       return false;
+    }
+
+    function correct(){
+      let modal = document.getElementById("modal");
+      modal.className = modal.className.replace("active", "");
+      document.getElementsByClassName("result")[0].innerHTML = document.getElementById("scan-result").innerText;
+      stopScan();
+    }
+
+    function rescan(){
+      let modal = document.getElementById("modal");
+      modal.className = modal.className.replace("active", "");
+      startProcessingLoop(false);
     }
   </script>
 </body>
