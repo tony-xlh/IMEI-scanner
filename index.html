@@ -73,7 +73,7 @@
       document.getElementsByClassName("status")[0].innerHTML = "Initializing...";
       camera = await Dynamsoft.DCE.CameraEnhancer.createInstance();
       await camera.setUIElement(document.getElementsByClassName("scanner")[0]);
-      setScanRegion();
+      setScanRegion(0,25,100,35);
       reader = await Dynamsoft.DBR.BarcodeReader.createInstance();
       recognizer = await Dynamsoft.DLR.LabelRecognizer.createInstance();
       await recognizer.updateRuntimeSettingsFromString("number");
@@ -81,12 +81,12 @@
       document.getElementsByClassName("start-btn")[0].disabled = "";
     }
 
-    function setScanRegion(){
+    function setScanRegion(left,top,right,bottom){
       camera.setScanRegion({
-        regionLeft:0,
-        regionTop:25,
-        regionRight:100,
-        regionBottom:35,
+        regionLeft:left,
+        regionTop:top,
+        regionRight:right,
+        regionBottom:bottom,
         regionMeasuredByPercentage: 1
       });
     }
@@ -106,7 +106,11 @@
 
     function onModeChanged(){
       let mode = document.getElementsByClassName("mode")[0].selectedOptions[0].value;
-      console.log(mode);
+      if (mode === "0") {
+        setScanRegion(0,25,100,35);
+      }else{
+        setScanRegion(25,25,75,35);
+      }
     }
 
     function startProcessingLoop(isBarcode){
