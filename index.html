@@ -36,7 +36,7 @@
       </div>
       <div class="status"></div>
       <button class="start-btn" onclick="startScan();" disabled>Start Scan</button>
-      <div class="results"></div>
+      <div class="result"></div>
     </div>
     <div class="scanner" style="display:none;">
       <svg class="dce-bg-loading" viewBox="0 0 1792 1792"><path d="M1760 896q0 176-68.5 336t-184 275.5-275.5 184-336 68.5-336-68.5-275.5-184-184-275.5-68.5-336q0-213 97-398.5t265-305.5 374-151v228q-221 45-366.5 221t-145.5 406q0 130 51 248.5t136.5 204 204 136.5 248.5 51 248.5-51 204-136.5 136.5-204 51-248.5q0-230-145.5-406t-366.5-221v-228q206 31 374 151t265 305.5 97 398.5z"/></svg>
@@ -140,9 +140,23 @@
         processing = true; // set decoding to true so that the next frame will be skipped if the decoding has not completed.
         let results = await recognizer.recognize(frame);
         console.log(results);
+        for (let index = 0; index < results.lineResults.length; index++) {
+          const lineResult = results.lineResults[index];
+          let text = whiteSpacesRemoved(lineResult.text);
+          if (IMEIValid(text)) {
+            document.getElementsByClassName("result")[0].innerHTML = text;
+            stopProcessingLoop();
+            break;
+          }
+        }
         processing = false;
       }
     };
+
+    function whiteSpacesRemoved(str){
+      str = str.split(" ").join("");
+      return str;
+    }
 
     async function captureAndDecode() {
       if (!camera || !reader) {
@@ -159,9 +173,27 @@
         processing = true; // set decoding to true so that the next frame will be skipped if the decoding has not completed.
         let results = await reader.decode(frame);
         console.log(results);
+        for (let index = 0; index < results.length; index++) {
+          const result = results[index];
+           if (IMEIValid(result.barcodeText)) {
+            document.getElementsByClassName("result")[0].innerHTML = result.barcodeText;
+            stopProcessingLoop();
+            break;
+           }
+        }
         processing = false;
       }
     };
+
+    function IMEIValid(imei) {
+      if (isNaN(imei)) {
+        return false;
+      } 
+      if (imei.length >= 15 && imei.length <= 17) {
+        return true;
+      }
+      return false;
+    }
   </script>
 </body>
 </html>
