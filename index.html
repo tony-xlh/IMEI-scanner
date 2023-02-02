@@ -140,13 +140,16 @@
         processing = true; // set decoding to true so that the next frame will be skipped if the decoding has not completed.
         let results = await recognizer.recognize(frame);
         console.log(results);
-        for (let index = 0; index < results.lineResults.length; index++) {
-          const lineResult = results.lineResults[index];
-          let text = whiteSpacesRemoved(lineResult.text);
-          if (IMEIValid(text)) {
-            document.getElementsByClassName("result")[0].innerHTML = text;
-            stopProcessingLoop();
-            break;
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+          for (let j = 0; j < result.lineResults.length; j++) {
+            const lineResult = result.lineResults[j];
+            let text = whiteSpacesRemoved(lineResult.text);
+            if (IMEIValid(text)) {
+              document.getElementsByClassName("result")[0].innerHTML = text;
+              stopScan();
+              break;
+            }
           }
         }
         processing = false;
@@ -177,7 +180,7 @@
           const result = results[index];
            if (IMEIValid(result.barcodeText)) {
             document.getElementsByClassName("result")[0].innerHTML = result.barcodeText;
-            stopProcessingLoop();
+            stopScan();
             break;
            }
         }
