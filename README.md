@@ -12,7 +12,7 @@ Demo videos:
 
    <https://user-images.githubusercontent.com/5462205/216273773-e4783f63-fca2-481d-9ddc-0aa57995bdf5.mp4>
 
-2. recognize text
+2. recognizing text
 
 
    <https://user-images.githubusercontent.com/5462205/216273942-7c862766-b267-48c0-bdcb-e2f61d8a3637.mp4>
