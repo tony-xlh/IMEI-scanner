@@ -27,7 +27,15 @@
   <div class="app">
     <div class="home">
       <h1>IMEI Scanner</h1>
-      <button onclick="startScan();">Start Scan</button>
+      <div>
+        Mode:
+        <select class="mode" onchange="onModeChanged()">
+          <option value="0">Read Barcodes</option>
+          <option value="1">Recognize Text</option>
+        </select>
+      </div>
+      <div class="status"></div>
+      <button class="start-btn" onclick="startScan();" disabled>Start Scan</button>
       <div class="results"></div>
     </div>
     <div class="scanner" style="display:none;">
@@ -53,19 +61,107 @@
     Dynamsoft.DCE.CameraEnhancer.engineResourcePath = "https://cdn.jsdelivr.net/npm/dynamsoft-camera-enhancer@3.2.0/dist/";
 
     let camera;
-    window.onload = async function () {
+    let reader;
+    let recognizer;
+    let interval;
+    let processing = false; 
+    window.onload = function () {
+      init();
+    }
+
+    async function init() {
+      document.getElementsByClassName("status")[0].innerHTML = "Initializing...";
       camera = await Dynamsoft.DCE.CameraEnhancer.createInstance();
       await camera.setUIElement(document.getElementsByClassName("scanner")[0]);
+      setScanRegion();
+      reader = await Dynamsoft.DBR.BarcodeReader.createInstance();
+      recognizer = await Dynamsoft.DLR.LabelRecognizer.createInstance();
+      await recognizer.updateRuntimeSettingsFromString("number");
+      document.getElementsByClassName("status")[0].innerHTML = "";
+      document.getElementsByClassName("start-btn")[0].disabled = "";
+    }
+
+    function setScanRegion(){
+      camera.setScanRegion({
+        regionLeft:0,
+        regionTop:45,
+        regionRight:100,
+        regionBottom:55,
+        regionMeasuredByPercentage: 1
+      });
     }
 
     function startScan(){
       camera.open(true);
+      let mode = document.getElementsByClassName("mode")[0].selectedOptions[0].value;
+      let isBarcode = (mode === "0") ? true : false;
+      console.log(isBarcode);
+      startProcessingLoop(isBarcode);
     }
 
     function stopScan(){
+      stopProcessingLoop();
       camera.close(true);
     }
 
+    function onModeChanged(){
+      let mode = document.getElementsByClassName("mode")[0].selectedOptions[0].value;
+      console.log(mode);
+    }
+
+    function startProcessingLoop(isBarcode){
+      stopProcessingLoop();
+      if (isBarcode) {
+        interval = setInterval(captureAndDecode,100);
+      } else {
+        interval = setInterval(captureAndRecognize,500);
+      }
+    }
+
+    function stopProcessingLoop(){
+      if (interval) {
+        clearInterval(interval);
+      }
+      processing = false;
+    }
+
+    async function captureAndRecognize() {
+      if (!camera || !recognizer) {
+        return
+      }
+      if (camera.isOpen() === false) {
+        return;
+      }
+      if (processing == true) {
+        return;
+      }
+      let frame = camera.getFrame();
+      if (frame) {
+        processing = true; // set decoding to true so that the next frame will be skipped if the decoding has not completed.
+        let results = await recognizer.recognize(frame);
+        console.log(results);
+        processing = false;
+      }
+    };
+
+    async function captureAndDecode() {
+      if (!camera || !reader) {
+        return
+      }
+      if (camera.isOpen() === false) {
+        return;
+      }
+      if (processing == true) {
+        return;
+      }
+      let frame = camera.getFrame();
+      if (frame) {
+        processing = true; // set decoding to true so that the next frame will be skipped if the decoding has not completed.
+        let results = await reader.decode(frame);
+        console.log(results);
+        processing = false;
+      }
+    };
   </script>
 </body>
 </html>
