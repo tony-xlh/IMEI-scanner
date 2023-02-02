@@ -101,7 +101,12 @@
       camera = await Dynamsoft.DCE.CameraEnhancer.createInstance();
       await camera.setUIElement(document.getElementsByClassName("scanner")[0]);
       setScanRegion(0,25,100,35);
+      
       reader = await Dynamsoft.DBR.BarcodeReader.createInstance();
+      let settings = await reader.getRuntimeSettings();
+      settings.barcodeFormatIds = Dynamsoft.DBR.EnumBarcodeFormat.BF_CODE_128;
+      await reader.updateRuntimeSettings(settings);
+
       recognizer = await Dynamsoft.DLR.LabelRecognizer.createInstance();
       await recognizer.updateRuntimeSettingsFromString("number");
       document.getElementsByClassName("status")[0].innerHTML = "";
