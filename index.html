@@ -230,6 +230,36 @@
         return false;
       } 
       if (imei.length >= 15 && imei.length <= 17) {
+        if (verifyCheckDigit(imei)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    //https://en.wikipedia.org/wiki/International_Mobile_Equipment_Identity#Check_digit_computation
+    function verifyCheckDigit(imei){
+      let checkDigit = imei.substring(imei.length-1);
+      let rest = imei.substring(0, imei.length-1);
+      let digits = rest.split("");
+      let sum = 0;
+      for (let i = 0; i < digits.length; i++) {
+        const digit = parseInt(digits[i]);
+        let numbers;
+        if ((i+1) % 2 === 0) {
+          let doubled = (digit * 2).toString();
+          numbers = doubled.split("");
+        }else{
+          numbers = [digit];
+        }
+
+        for (let j = 0; j < numbers.length; j++) {
+          const number = numbers[j];
+          sum = sum + parseInt(number);
+        }
+      }
+
+      if ((sum + parseInt(checkDigit)) % 10 === 0) {
         return true;
       }
       return false;
