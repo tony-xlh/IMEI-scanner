@@ -16,3 +16,7 @@ Demo videos:
 
 
    <https://user-images.githubusercontent.com/5462205/216273942-7c862766-b267-48c0-bdcb-e2f61d8a3637.mp4>
+   
+## Blog
+
+[How to Build an IMEI Scanner in HTML5](https://www.dynamsoft.com/codepool/imei-scanner.html)
