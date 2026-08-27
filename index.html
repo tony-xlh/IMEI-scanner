@@ -4,231 +4,473 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IMEI Scanner</title>
-  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-camera-enhancer@3.2.0/dist/dce.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-javascript-barcode@9.6.2/dist/dbr.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-label-recognizer@2.2.11/dist/dlr.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-capture-vision-bundle@3.6.3000/dist/dcv.bundle.min.js"></script>
   <style>
-    @keyframes dce-rotate{from{transform:rotate(0turn);}to{transform:rotate(1turn);}}
-    @keyframes dce-scanlight{from{top:0;}to{top:97%;}}
-    .scanner{width:100%;height:100%;min-width:100px;min-height:100px;background:#eee;position:absolute;left:0;top:0;}
-    .dce-bg-loading{animation:1s linear infinite dce-rotate;width:40%;height:40%;position:absolute;margin:auto;left:0;top:0;right:0;bottom:0;fill:#aaa;}
-    .dce-bg-camera{display:none;width:40%;height:40%;position:absolute;margin:auto;left:0;top:0;right:0;bottom:0;fill:#aaa;}
-    .dce-video-container{position:absolute;left:0;top:0;width:100%;height:100%;}
-    .dce-scanarea{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;}
-    .sel-container{position: absolute;left: 0;top: 0;}
-    .sel-container .dce-sel-camera{display:block;}
-    .sel-container .dce-sel-resolution{display:block;margin-top:5px;}
-    .sel-container {display:block;margin-top:5px;}
-    .close-btn{position: absolute;right: 0;top: 0;}
-    .home {text-align: center;}
+    * { box-sizing: border-box; }
+    html, body {margin:0; padding:0; width:100%; height:100%; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background:#f0f4f8;}
+    .home {display:flex; flex-direction:column; align-items:center; padding:32px 16px;}
+    .card {
+      width:100%; max-width:440px; background:#fff; border-radius:16px;
+      box-shadow:0 8px 30px rgba(30,60,120,.12); padding:28px 28px 24px;
+    }
+    h1 {margin:0 0 4px; font-size:26px; color:#1a2b4c;}
+    .subtitle {margin:0 0 22px; color:#7a8aa5; font-size:14px;}
+    .field-label {display:block; font-size:13px; font-weight:600; color:#5a6b8c; margin-bottom:6px;}
+    .segmented {display:flex; background:#eef2f8; border-radius:10px; padding:4px; margin-bottom:20px;}
+    .segmented button {
+      flex:1; border:none; background:transparent; padding:10px 8px; border-radius:8px;
+      font-size:14px; font-weight:600; color:#5a6b8c; cursor:pointer; transition:all .15s;
+    }
+    .segmented button.active {background:#fff; color:#2456d6; box-shadow:0 2px 8px rgba(30,60,120,.15);}
+    .btn {
+      width:100%; border:none; border-radius:10px; padding:14px; font-size:16px; font-weight:600;
+      cursor:pointer; transition:opacity .15s; margin-bottom:10px;
+    }
+    .btn:disabled {opacity:.5; cursor:not-allowed;}
+    .btn-primary {background:linear-gradient(135deg,#2456d6,#3f7bf5); color:#fff;}
+    .btn-secondary {background:#fff; color:#2456d6; border:2px solid #d5e0f5;}
+    .status {
+      min-height:20px; font-size:13px; color:#c0392b; text-align:center; margin-top:4px;
+    }
+    .status:empty {margin-top:0;}
+    .status.info {color:#5a6b8c;}
+    .result-panel {
+      display:none; margin-top:16px; background:#f0f6ff; border:2px dashed #b9cdf2;
+      border-radius:12px; padding:16px; text-align:center;
+    }
+    .result-panel.show {display:block;}
+    .result-label {font-size:12px; color:#5a6b8c; font-weight:600; letter-spacing:.05em;}
+    .result-value {font-family:Consolas,monospace; font-size:26px; font-weight:700; color:#1a2b4c; margin:6px 0 10px; word-break:break-all;}
+    .copy-btn {
+      border:none; background:#2456d6; color:#fff; font-size:13px; font-weight:600;
+      padding:8px 20px; border-radius:8px; cursor:pointer;
+    }
+    .sample-hint {margin-top:14px; font-size:12px; color:#93a3bd; text-align:center; line-height:1.6;}
+    .sample-hint img {width:120px; border:1px solid #e2e8f2; border-radius:6px; display:block; margin:6px auto 0;}
+
+    /* full-screen scanner view */
+    .scanner{position:fixed; inset:0; background:#0c1220; display:none; z-index:100;}
+    #camera-view-container{position:absolute; inset:0;}
+    #camera-view-container div {width:100%; height:100%;}
+    .close-btn{
+      position:absolute; right:14px; top:14px; z-index:20; border:none; border-radius:20px;
+      background:rgba(255,255,255,.9); color:#1a2b4c; font-size:14px; font-weight:600;
+      padding:8px 18px; cursor:pointer;
+    }
+    .scan-hint{
+      position:absolute; z-index:11; left:0; right:0; text-align:center; color:#cfe4ff;
+      font-size:13px; text-shadow:0 1px 3px rgba(0,0,0,.6); pointer-events:none;
+    }
+
+    /* modal for OCR confirmation */
+    .modal-backdrop{
+      display:none; position:fixed; inset:0; background:rgba(10,16,30,.55);
+      z-index:200; backdrop-filter:blur(2px);
+    }
+    .modal-backdrop.active {display:flex; align-items:center; justify-content:center;}
     .modal-window {
-      display: none;
-      position: absolute;
-      left: 50%;
-      max-width: 80%;
-      transform: translateX(-50%);
-      z-index: 99999;
-      background: #fff;
-      padding: 20px;
-      border: thick double black;
-      border-radius: 5px;
-      font-family: sans-serif;
-      top: 50px;  
+      background:#fff; border-radius:16px; padding:26px 30px; max-width:86%; width:340px;
+      text-align:center; box-shadow:0 16px 50px rgba(0,0,0,.35);
     }
-    .modal-window.active {
-        display: block;
+    .modal-title {margin:0 0 4px; font-size:15px; color:#5a6b8c; font-weight:600;}
+    .modal-window pre {
+      font-family:Consolas,monospace; font-size:30px; font-weight:700; color:#1a2b4c;
+      margin:10px 0 20px; word-break:break-all;
     }
-    .overflow {
-      overflow: auto;
+    .modal-actions {display:flex; gap:10px;}
+    .modal-actions .btn {margin-bottom:0;}
+
+    /* loading overlay */
+    .loading-indicator{
+      display:none; position:fixed; inset:0; z-index:300; background:rgba(10,16,30,.45);
+      align-items:center; justify-content:center; flex-direction:column; gap:14px;
     }
+    .loading-indicator.active {display:flex;}
+    .spinner{
+      width:46px; height:46px; border-radius:50%;
+      border:4px solid rgba(255,255,255,.25); border-top-color:#fff;
+      animation:spin .8s linear infinite;
+    }
+    .loading-indicator span {color:#fff; font-size:14px; font-weight:600;}
+    @keyframes spin{to{transform:rotate(360deg);}}
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="home">
-      <h1>IMEI Scanner</h1>
-      <div>
-        Mode:
-        <select class="mode" onchange="onModeChanged()">
-          <option value="0">Read Barcodes</option>
-          <option value="1">Recognize Text</option>
-        </select>
+  <div class="home">
+    <div class="card">
+      <h1>📱 IMEI Scanner</h1>
+      <p class="subtitle">Scan a barcode or recognize the printed digits</p>
+
+      <label class="field-label">Mode</label>
+      <div class="segmented">
+        <button id="mode-barcode" class="active" onclick="setMode(0)">📊 Barcode</button>
+        <button id="mode-text" onclick="setMode(1)">🔢 Printed digits</button>
       </div>
-      <div class="status"></div>
-      <button class="start-btn" onclick="startScan();" disabled>Start Scan</button>
-      <div class="result"></div>
-    </div>
-    <div class="scanner" style="display:none;">
-      <svg class="dce-bg-loading" viewBox="0 0 1792 1792"><path d="M1760 896q0 176-68.5 336t-184 275.5-275.5 184-336 68.5-336-68.5-275.5-184-184-275.5-68.5-336q0-213 97-398.5t265-305.5 374-151v228q-221 45-366.5 221t-145.5 406q0 130 51 248.5t136.5 204 204 136.5 248.5 51 248.5-51 204-136.5 136.5-204 51-248.5q0-230-145.5-406t-366.5-221v-228q206 31 374 151t265 305.5 97 398.5z"/></svg>
-      <svg class="dce-bg-camera" viewBox="0 0 2048 1792"><path d="M1024 672q119 0 203.5 84.5t84.5 203.5-84.5 203.5-203.5 84.5-203.5-84.5-84.5-203.5 84.5-203.5 203.5-84.5zm704-416q106 0 181 75t75 181v896q0 106-75 181t-181 75h-1408q-106 0-181-75t-75-181v-896q0-106 75-181t181-75h224l51-136q19-49 69.5-84.5t103.5-35.5h512q53 0 103.5 35.5t69.5 84.5l51 136h224zm-704 1152q185 0 316.5-131.5t131.5-316.5-131.5-316.5-316.5-131.5-316.5 131.5-131.5 316.5 131.5 316.5 316.5 131.5z"/></svg>
-      <div class="dce-video-container"></div>
-      <div class="dce-scanarea">
+
+      <button class="btn btn-primary start-btn" onclick="startScan();" disabled>📷 Start Scan</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('pick-file').click();">🖼️ Load Image</button>
+      <button class="btn btn-secondary" onclick="loadSampleImage();">🧪 Try Sample Image</button>
+      <input type="file" id="pick-file" accept="image/*" style="display:none;">
+
+      <div class="status info"></div>
+
+      <div class="result-panel">
+        <div class="result-label">IMEI RESULT</div>
+        <div class="result-value"></div>
+        <button class="copy-btn" onclick="copyResult();">Copy</button>
       </div>
-      <div class="sel-container">
-        <select class="dce-sel-camera"></select>
-        <select class="dce-sel-resolution"></select>
-      </div>
-      <button class="close-btn" onclick="stopScan();">Close</button>
-      <div id="modal" class="modal-window">
-        <div class="overflow">
-          <pre id="scan-result"></pre>
-        </div>
-        <button id="correct-btn" onclick="correct()">Correct</button>
-        <button id="rescan-btn" onclick="rescan()">Rescan</button>
+
+      <div class="sample-hint">
+        Tip: you can also load the bundled sample label image
+        <img src="sample-imei.png" alt="sample IMEI label">
       </div>
     </div>
   </div>
 
+  <!-- full-screen camera scanner -->
+  <div class="scanner">
+    <div id="camera-view-container"></div>
+    <div class="scan-hint"></div>
+    <button class="close-btn" onclick="stopScan();">✕ Close</button>
+  </div>
+
+  <!-- modal for confirming OCR results -->
+  <div class="modal-backdrop" id="modal">
+    <div class="modal-window">
+      <p class="modal-title">Is this the correct IMEI?</p>
+      <pre id="scan-result"></pre>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="correct-btn" onclick="correct()">✓ Correct</button>
+        <button class="btn btn-secondary" id="rescan-btn" onclick="rescan()">↻ Rescan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- loading overlay -->
+  <div class="loading-indicator">
+    <div class="spinner"></div>
+    <span>Processing image…</span>
+  </div>
 
   <script>
-    Dynamsoft.DBR.BarcodeScanner.license = "DLS2eyJoYW5kc2hha2VDb2RlIjoiMjAwMDAxLTE2NDk4Mjk3OTI2MzUiLCJvcmdhbml6YXRpb25JRCI6IjIwMDAwMSIsInNlc3Npb25QYXNzd29yZCI6IndTcGR6Vm05WDJrcEQ5YUoifQ==";
-    Dynamsoft.DLR.LabelRecognizer.license = "DLS2eyJoYW5kc2hha2VDb2RlIjoiMjAwMDAxLTE2NDk4Mjk3OTI2MzUiLCJvcmdhbml6YXRpb25JRCI6IjIwMDAwMSIsInNlc3Npb25QYXNzd29yZCI6IndTcGR6Vm05WDJrcEQ5YUoifQ==";
-    Dynamsoft.DBR.BarcodeScanner.engineResourcePath = "https://cdn.jsdelivr.net/npm/dynamsoft-javascript-barcode@9.6.2/dist/";
-    Dynamsoft.DLR.LabelRecognizer.engineResourcePath = "https://cdn.jsdelivr.net/npm/dynamsoft-label-recognizer@2.2.11/dist/";
-    Dynamsoft.DCE.CameraEnhancer.engineResourcePath = "https://cdn.jsdelivr.net/npm/dynamsoft-camera-enhancer@3.2.0/dist/";
+    const LICENSE_KEY = "DLS2eyJoYW5kc2hha2VDb2RlIjoiMjAwMDAxLTE2NDk4Mjk3OTI2MzUiLCJvcmdhbml6YXRpb25JRCI6IjIwMDAwMSIsInNlc3Npb25QYXNzd29yZCI6IndTcGR6Vm05WDJrcEQ5YUoifQ==";
 
-    let camera;
-    let reader;
-    let recognizer;
-    let interval;
-    let processing = false; 
-    window.onload = function () {
-      init();
-    }
+    const BARCODE_TEMPLATE = "ReadSingleBarcode";
+    const TEXT_TEMPLATE = "RecognizeTextLines_Default";
+    const REGION_BARCODE = {x:0,y:25,width:100,height:10,isMeasuredInPercentage:true};
+    const REGION_TEXT = {x:25,y:25,width:50,height:10,isMeasuredInPercentage:true};
+
+    let cvr;
+    let cameraEnhancer;
+    let cameraOpened = false;
+    let isScanning = false;
+    let isProcessingFile = false;
+    let fileMode = false;
+
+    window.onload = init;
 
     async function init() {
-      document.getElementsByClassName("status")[0].innerHTML = "Initializing...";
-      camera = await Dynamsoft.DCE.CameraEnhancer.createInstance();
-      await camera.setUIElement(document.getElementsByClassName("scanner")[0]);
-      setScanRegion(0,25,100,35);
-      
-      reader = await Dynamsoft.DBR.BarcodeReader.createInstance();
-      let settings = await reader.getRuntimeSettings();
-      settings.barcodeFormatIds = Dynamsoft.DBR.EnumBarcodeFormat.BF_CODE_128;
-      await reader.updateRuntimeSettings(settings);
+      setStatus("Initializing…", true);
+      try {
+        await Dynamsoft.License.LicenseManager.initLicense(LICENSE_KEY, true);
+        await Dynamsoft.Core.CoreModule.loadWasm(["DBR", "DLR"]);
 
-      recognizer = await Dynamsoft.DLR.LabelRecognizer.createInstance();
-      await recognizer.updateRuntimeSettingsFromString("number");
-      document.getElementsByClassName("status")[0].innerHTML = "";
-      document.getElementsByClassName("start-btn")[0].disabled = "";
+        const cameraView = await Dynamsoft.DCE.CameraView.createInstance();
+        document.getElementById("camera-view-container").append(cameraView.getUIElement());
+        // hide the built-in camera and resolution selectors
+        cameraView.getUIElement().shadowRoot?.querySelector('.dce-sel-camera')?.setAttribute('style', 'display:none');
+        cameraView.getUIElement().shadowRoot?.querySelector('.dce-sel-resolution')?.setAttribute('style', 'display:none');
+        cameraEnhancer = await Dynamsoft.DCE.CameraEnhancer.createInstance(cameraView);
+
+        cvr = await Dynamsoft.CVR.CaptureVisionRouter.createInstance();
+
+        // restrict barcode scanning to Code128 since IMEI barcodes use this format
+        let settings = await cvr.getSimplifiedSettings(BARCODE_TEMPLATE);
+        settings.barcodeSettings.barcodeFormatIds = Dynamsoft.DBR.EnumBarcodeFormat.BF_CODE_128;
+        await cvr.updateSettings(BARCODE_TEMPLATE, settings);
+
+        cvr.addResultReceiver({
+          onCapturedResultReceived: (result) => { handleResults(result); }
+        });
+
+        document.getElementsByClassName("start-btn")[0].disabled = "";
+        setStatus("", true);
+      } catch (ex) {
+        console.error(ex);
+        setStatus("Initialization failed: " + (ex.message || ex), false);
+      }
     }
 
-    function setScanRegion(left,top,right,bottom){
-      camera.setScanRegion({
-        regionLeft:left,
-        regionTop:top,
-        regionRight:right,
-        regionBottom:bottom,
-        regionMeasuredByPercentage: 1
+    function isBarcodeMode() {
+      return document.getElementById("mode-barcode").classList.contains("active");
+    }
+
+    function setMode(mode) {
+      document.getElementById("mode-barcode").classList.toggle("active", mode === 0);
+      document.getElementById("mode-text").classList.toggle("active", mode === 1);
+      const region = isBarcodeMode() ? REGION_BARCODE : REGION_TEXT;
+      if (cameraEnhancer) {
+        cameraEnhancer.setScanRegion(region); // the built-in camera UI shows this region
+      }
+      updateScanHint(region);
+    }
+
+    function updateScanHint(region) {
+      if (!region) return;
+      const hint = document.querySelector(".scan-hint");
+      hint.style.top = `calc(${region.y + region.height}% + 10px)`;
+      hint.textContent = region === REGION_TEXT
+        ? "Align the printed IMEI digits within the highlighted frame"
+        : "Align the IMEI barcode within the highlighted frame";
+    }
+
+    async function startScan(){
+      document.getElementsByClassName("scanner")[0].style.display = "block";
+      const region = isBarcodeMode() ? REGION_BARCODE : REGION_TEXT;
+      updateScanHint(region);
+      cameraEnhancer.setScanRegion(region);
+      try {
+        await openCameraIfNeeded();
+        cvr.setInput(cameraEnhancer);
+        isScanning = true;
+        fileMode = false;
+        await cvr.startCapturing(isBarcodeMode() ? BARCODE_TEMPLATE : TEXT_TEMPLATE);
+      } catch (ex) {
+        console.error(ex);
+        setStatus(ex.message || ex, false);
+        stopScan();
+      }
+    }
+
+    async function stopScan(){
+      await pauseCapturing();
+      closeModal();
+      document.getElementsByClassName("scanner")[0].style.display = "none";
+      closeCameraIfOpen();
+    }
+
+    async function openCameraIfNeeded(){
+      if (cameraOpened) {
+        return;
+      }
+      const cameras = await cameraEnhancer.getAllCameras();
+      if (cameras != null && cameras.length > 0) {
+        await cameraEnhancer.selectCamera(cameras[0]);
+      } else {
+        throw new Error("No camera found.");
+      }
+      await cameraEnhancer.open();
+      cameraOpened = true;
+    }
+
+    function closeCameraIfOpen(){
+      if (cameraOpened) {
+        cameraEnhancer.close();
+        cameraOpened = false;
+      }
+    }
+
+    async function pauseCapturing(){
+      isScanning = false;
+      if (cvr) {
+        try {
+          await cvr.stopCapturing();
+        } catch (ex) {
+          console.error(ex);
+        }
+      }
+    }
+
+    async function handleResults(result) {
+      if (!isScanning || !result || !result.items) {
+        return;
+      }
+      await processItems(result.items);
+    }
+
+    async function processItems(items){
+      const barcodeMode = isBarcodeMode();
+      const targetType = barcodeMode
+        ? Dynamsoft.Core.EnumCapturedResultItemType.CRIT_BARCODE
+        : Dynamsoft.Core.EnumCapturedResultItemType.CRIT_TEXT_LINE;
+      const lines = [];
+      for (const item of items) {
+        if (!item || item.type !== targetType) {
+          continue;
+        }
+        if (barcodeMode) {
+          const imei = extractIMEI(item.text);
+          if (imei) {
+            // barcode results are reliable; save the result directly
+            showResult(imei);
+            return true;
+          }
+        } else {
+          lines.push(whiteSpacesRemoved(item.text));
+        }
+      }
+      if (barcodeMode) {
+        return false;
+      }
+      // OCR lines may carry prefixes like "IMEI1:" or split the digits across lines;
+      // try every line on its own and the concatenation of all lines.
+      const sources = [...lines, lines.join("")];
+      for (const src of sources) {
+        const imei = extractIMEI(src);
+        if (imei) {
+          // OCR may contain errors; ask the user to confirm the result
+          showConfirmModal(imei);
+          return true;
+        }
+      }
+      // nothing valid yet; show live feedback so the user knows the OCR is working
+      if (isScanning && lines.length > 0) {
+        document.querySelector(".scan-hint").textContent =
+          "Reading: " + lines[0].slice(0, 32) + (lines[0].length > 32 ? "…" : "");
+      }
+      return false;
+    }
+
+    function showConfirmModal(text){
+      setStatus("", true);
+      document.getElementById("scan-result").innerText = text;
+      document.getElementById("modal").classList.add("active");
+      pauseCapturing(); // keep the camera preview open behind the modal
+    }
+
+    function showResult(text){
+      setStatus("", true);
+      document.querySelector(".result-panel").classList.add("show");
+      document.querySelector(".result-value").innerText = text;
+      stopScan();
+    }
+
+    function correct(){
+      const text = document.getElementById("scan-result").innerText;
+      closeModal();
+      showResult(text);
+    }
+
+    async function rescan(){
+      closeModal();
+      if (fileMode) {
+        // let the user pick another image
+        document.getElementById("pick-file").click();
+      } else {
+        cvr.setInput(cameraEnhancer);
+        isScanning = true;
+        await cvr.startCapturing(TEXT_TEMPLATE);
+      }
+    }
+
+    function closeModal(){
+      document.getElementById("modal").classList.remove("active");
+    }
+
+    function toggleLoading(show){
+      document.querySelector(".loading-indicator").classList.toggle("active", show);
+    }
+
+    function setStatus(message, info){
+      const el = document.querySelector(".status");
+      el.innerHTML = message;
+      el.classList.toggle("info", !!info);
+    }
+
+    function copyResult(){
+      const text = document.querySelector(".result-value").innerText;
+      navigator.clipboard?.writeText(text).catch(() => {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
       });
     }
 
-    function startScan(){
-      camera.open(true);
-      let mode = document.getElementsByClassName("mode")[0].selectedOptions[0].value;
-      let isBarcode = (mode === "0") ? true : false;
-      console.log(isBarcode);
-      startProcessingLoop(isBarcode);
-    }
-
-    function stopScan(){
-      stopProcessingLoop();
-      camera.close(true);
-    }
-
-    function onModeChanged(){
-      let mode = document.getElementsByClassName("mode")[0].selectedOptions[0].value;
-      if (mode === "0") {
-        setScanRegion(0,25,100,35);
-      }else{
-        setScanRegion(25,25,75,35);
+    // ---------- image file mode ----------
+    document.getElementById("pick-file").addEventListener("change", function(){
+      const file = this.files[0];
+      this.value = ""; // allow selecting the same file again
+      if (file) {
+        processFile(file);
       }
-    }
+    });
 
-    function startProcessingLoop(isBarcode){
-      stopProcessingLoop();
-      if (isBarcode) {
-        interval = setInterval(captureAndDecode,100);
-      } else {
-        interval = setInterval(captureAndRecognize,500);
-      }
-    }
-
-    function stopProcessingLoop(){
-      if (interval) {
-        clearInterval(interval);
-      }
-      processing = false;
-    }
-
-    async function captureAndRecognize() {
-      if (!camera || !recognizer) {
-        return
-      }
-      if (camera.isOpen() === false) {
+    async function processFile(file){
+      if (isProcessingFile) {
         return;
       }
-      if (processing == true) {
-        return;
-      }
-      let frame = camera.getFrame();
-      if (frame) {
-        processing = true; // set decoding to true so that the next frame will be skipped if the decoding has not completed.
-        let results = await recognizer.recognize(frame);
-        console.log(results);
-        for (let i = 0; i < results.length; i++) {
-          const result = results[i];
-          for (let j = 0; j < result.lineResults.length; j++) {
-            const lineResult = result.lineResults[j];
-            let text = whiteSpacesRemoved(lineResult.text);
-            if (IMEIValid(text)) {
-              document.getElementById("scan-result").innerText = text;
-              document.getElementById("modal").className += " active";
-              stopProcessingLoop();
-              break;
-            }
-          }
+      isProcessingFile = true;
+      fileMode = true;
+      toggleLoading(true);
+      setStatus("", true);
+      try {
+        const src = await readAsDataURL(file);
+        const template = isBarcodeMode() ? BARCODE_TEMPLATE : TEXT_TEMPLATE;
+        const result = await cvr.capture(src, template);
+        const found = await processItems((result && result.items) || []);
+        if (!found) {
+          setStatus("No valid IMEI found in the image. Try the other mode or a sharper photo.", false);
         }
-        processing = false;
+      } catch (ex) {
+        console.error(ex);
+        setStatus("Failed to process the image: " + (ex.message || ex), false);
+      } finally {
+        toggleLoading(false);
+        isProcessingFile = false;
       }
-    };
+    }
+
+    async function loadSampleImage(){
+      try {
+        const response = await fetch("sample-imei.png");
+        if (!response.ok) {
+          throw new Error("sample-imei.png not found");
+        }
+        processFile(await response.blob());
+      } catch (ex) {
+        console.error(ex);
+        setStatus(ex.message || ex, false);
+      }
+    }
+
+    function readAsDataURL(file){
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+    }
 
     function whiteSpacesRemoved(str){
       str = str.split(" ").join("");
       return str;
     }
 
-    async function captureAndDecode() {
-      if (!camera || !reader) {
-        return
-      }
-      if (camera.isOpen() === false) {
-        return;
-      }
-      if (processing == true) {
-        return;
-      }
-      let frame = camera.getFrame();
-      if (frame) {
-        processing = true; // set decoding to true so that the next frame will be skipped if the decoding has not completed.
-        let results = await reader.decode(frame);
-        console.log(results);
-        for (let index = 0; index < results.length; index++) {
-          const result = results[index];
-           if (IMEIValid(result.barcodeText)) {
-            document.getElementsByClassName("result")[0].innerHTML = result.barcodeText;
-            stopScan();
-            break;
-           }
+    // Extract a valid IMEI from arbitrary text. Labels often carry prefixes
+    // such as "IMEI1:" that merge into the digit string, so slide a 15-17
+    // digit window over all digits and return the first window that passes
+    // the Luhn check digit validation.
+    function extractIMEI(str) {
+      const digits = (String(str).match(/\d+/g) || []).join("");
+      for (const len of [17, 16, 15]) {
+        for (let i = 0; i + len <= digits.length; i++) {
+          const candidate = digits.substring(i, i + len);
+          if (IMEIValid(candidate)) {
+            return candidate;
+          }
         }
-        processing = false;
       }
-    };
+      return null;
+    }
 
     function IMEIValid(imei) {
       if (isNaN(imei)) {
         return false;
-      } 
+      }
       if (imei.length >= 15 && imei.length <= 17) {
         if (verifyCheckDigit(imei)) {
           return true;
@@ -263,19 +505,6 @@
         return true;
       }
       return false;
-    }
-
-    function correct(){
-      let modal = document.getElementById("modal");
-      modal.className = modal.className.replace("active", "");
-      document.getElementsByClassName("result")[0].innerHTML = document.getElementById("scan-result").innerText;
-      stopScan();
-    }
-
-    function rescan(){
-      let modal = document.getElementById("modal");
-      modal.className = modal.className.replace("active", "");
-      startProcessingLoop(false);
     }
   </script>
 </body>
